@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Santa Marta — Paso Provisional Mendiguaca — Gemelo Digital</title>
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css">
+    <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: #0a0a0a; color: #e0e0e0; overflow: hidden; }
+        #map { width: 100vw; height: 100vh; }
+
+        /* Info panel */
+        .panel {
+            position: absolute; top: 12px; left: 12px;
+            background: rgba(10, 10, 30, 0.92);
+            border: 1px solid rgba(0, 180, 255, 0.3);
+            border-radius: 8px; padding: 14px; width: 260px;
+            backdrop-filter: blur(10px); z-index: 10;
+        }
+        .panel h2 { font-size: 13px; color: #00d4ff; margin-bottom: 8px; border-bottom: 1px solid rgba(0,180,255,0.2); padding-bottom: 6px; }
+        .stat { font-size: 11px; margin: 3px 0; color: #b0b0b0; }
+        .stat span { color: #00eaff; font-weight: bold; }
+        .clock-display { font-size: 28px; font-weight: 700; color: #00eaff; text-align: center; letter-spacing: 2px; font-family: 'Consolas', monospace; text-shadow: 0 0 15px rgba(0,200,255,0.4); margin: 4px 0 2px; }
+        .date-display { font-size: 11px; color: #888; text-align: center; margin-bottom: 6px; }
+
+        /* Crossing panel */
+        .crossing-panel {
+            position: absolute; top: 12px; right: 12px;
+            background: rgba(10, 10, 30, 0.95);
+            border: 1px solid rgba(255, 140, 0, 0.4);
+            border-radius: 10px; padding: 16px; width: 420px;
+            backdrop-filter: blur(12px); z-index: 10;
+            max-height: calc(100vh - 24px); overflow-y: auto;
+        }
+        .crossing-panel h2 { font-size: 14px; color: #ff9900; margin-bottom: 10px; border-bottom: 1px solid rgba(255,140,0,0.25); padding-bottom: 8px; }
+
+        /* Structure info */
+        .structure-info {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+            background: rgba(0,0,0,0.3); border-radius: 6px; padding: 10px; margin-bottom: 12px;
+            font-size: 10px; color: #aaa;
+        }
+        .structure-info .val { color: #00ddff; font-weight: 700; font-size: 13px; }
+        .structure-info .label { font-size: 9px; color: #777; margin-top: 2px; }
+
+        /* Capacity gauge */
+        .gauge-container { margin-bottom: 14px; }
+        .gauge-label { font-size: 11px; color: #ccc; margin-bottom: 4px; display: flex; justify-content: space-between; }
+        .gauge-bar-bg {
+            height: 28px; background: rgba(255,255,255,0.05); border-radius: 6px;
+            overflow: visible; position: relative; border: 1px solid rgba(255,255,255,0.1);
+        }
+        .gauge-bar-fill {
+            height: 100%; border-radius: 5px; transition: width 0.5s ease, background 0.3s ease;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: 700; color: white; text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+            min-width: 50px;
+        }
+        .gauge-bar-fill.safe { background: linear-gradient(90deg, #00aa55, #00cc66); }
+        .gauge-bar-fill.caution { background: linear-gradient(90deg, #cc9900, #eebb00); }
+        .gauge-bar-fill.warning { background: linear-gradient(90deg, #ee7700, #ff9900); }
+        .gauge-bar-fill.danger { background: linear-gradient(90deg, #dd3300, #ff4422); }
+        .gauge-bar-fill.overflow { background: linear-gradient(90deg, #cc0000, #ff0000); }
+        .gauge-bar-fill.collapse { background: linear-gradient(90deg, #990000, #cc0000); animation: pulse 1s infinite; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+        .gauge-100-mark {
+            position: absolute; right: 0; top: -4px; bottom: -4px;
+            width: 2px; background: #ff0000; z-index: 2;
+        }
+
+        /* Alert badge */
+        .alert-box {
+            text-align: center; padding: 8px; border-radius: 6px;
+            margin-bottom: 12px; font-size: 14px; font-weight: 700;
+            transition: all 0.3s ease;
+        }
+        .alert-box.safe { background: rgba(0,180,80,0.2); color: #00cc55; border: 1px solid rgba(0,180,80,0.3); }
+        .alert-box.caution { background: rgba(220,180,0,0.2); color: #eebb00; border: 1px solid rgba(220,180,0,0.3); }
+        .alert-box.warning { background: rgba(255,140,0,0.2); color: #ff9900; border: 1px solid rgba(255,140,0,0.3); }
+        .alert-box.danger { background: rgba(255,50,30,0.2); color: #ff3322; border: 1px solid rgba(255,50,30,0.3); }
+        .alert-box.overflow { background: rgba(200,0,0,0.25); color: #ff0000; border: 1px solid rgba(200,0,0,0.4); }
+        .alert-box.collapse { background: rgba(200,0,0,0.3); color: #ff0000; border: 2px solid #ff0000; animation: pulse 1s infinite; }
+
+        /* Meteo Predictor */
+        .meteo-panel {
+            background: rgba(0,0,0,0.3); border-radius: 6px; padding: 10px; margin-bottom: 12px;
+            border-left: 3px solid #666; display: flex; flex-direction: column; gap: 6px; transition: all 0.3s ease;
+        }
+        .meteo-panel.Bajo { border-left-color: #00cc55; }
+        .meteo-panel.Moderado { border-left-color: #eebb00; }
+        .meteo-panel.Alto { border-left-color: #ff9900; }
+        .meteo-panel.Crítico { border-left-color: #ff3322; background: rgba(255,50,30,0.15); box-shadow: 0 0 10px rgba(255,50,30,0.3); }
+        .meteo-header { display: flex; justify-content: space-between; font-size: 11px; font-weight: bold; color: #ddd; }
+        .meteo-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 6px; }
+        .meteo-stat { text-align: center; font-size: 8px; color: #aaa; }
+        .meteo-stat span { display: block; font-size: 11px; color: #00ddff; font-weight: bold; margin-bottom: 2px; }
+        .meteo-factors { font-size: 9px; color: #ffaa55; margin-top: 2px; font-style: italic; display: none; }
+        .meteo-panel.Crítico .meteo-factors, .meteo-panel.Alto .meteo-factors, .meteo-panel.Moderado .meteo-factors { display: block; }
+
+        /* Chart */
+        .chart-container { background: rgba(0,0,0,0.3); border-radius: 6px; padding: 10px; margin-bottom: 12px; }
+        .chart-container canvas { width: 100% !important; height: 180px !important; }
+
+        /* Buttons */
+        .sim-controls { display: flex; gap: 6px; flex-wrap: wrap; }
+        .btn { flex: 1; min-width: 100px; padding: 9px 8px; border: none; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; color: white; transition: all 0.3s ease; }
+        .btn:hover { transform: scale(1.02); filter: brightness(1.15); }
+        .btn:disabled { opacity: 0.5; cursor: wait; }
+        .btn-live { background: linear-gradient(135deg, #00aa55, #00dd77); }
+        .btn-future { background: linear-gradient(135deg, #0066cc, #0099ff); }
+        .btn-flood { background: linear-gradient(135deg, #ff4422, #ff8800); }
+
+        /* Flow info */
+        .flow-info { font-size: 10px; color: #888; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.08); }
+        .flow-info span { color: #00bbff; font-weight: 600; }
+        .manning-label { font-size: 9px; color: #555; margin-top: 6px; font-style: italic; text-align: center; }
+
+        /* Tubes Visualizer */
+        .tubes-section { margin-top: 12px; border-top: 1px solid rgba(255,140,0,0.25); padding-top: 10px; }
+        .tubes-header { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 6px; color: #ccc; }
+        .tubes-grid { display: flex; gap: 4px; justify-content: space-between; }
+        .tube-wrapper { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+        .tube-label { font-size: 8px; color: #888; }
+        .tube { 
+            width: 28px; height: 28px; border-radius: 50%; border: 2px solid #444; 
+            background: radial-gradient(circle at 30% 30%, #333, #0a0a0a 70%); 
+            position: relative; overflow: hidden;
+            box-shadow: inset 0 0 8px rgba(0,0,0,0.9), 0 0 4px rgba(0,0,0,0.5);
+            border-top-color: #777; /* Subtle lighting on pipe rim */
+        }
+        .tube-water { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0, 160, 255, 0.4); border-top: 1px solid rgba(150, 220, 255, 0.6); transition: height 0.5s ease; z-index: 1; backdrop-filter: blur(1px); }
+        .tube-sediment { 
+            position: absolute; bottom: 0; left: 0; right: 0; 
+            background: #4a3018; 
+            background-image: radial-gradient(#2a1a08 15%, transparent 16%), radial-gradient(#3a2512 15%, transparent 16%);
+            background-size: 8px 8px; background-position: 0 0, 4px 4px;
+            border-top: 2px solid #332010; 
+            transition: height 0.5s ease; z-index: 2; 
+        }
+        .tube-sediment.plugged { background-color: #702828; }
+
+        /* Precip Alert */
+        @keyframes rainFlash {
+            0% { background-color: rgba(255, 0, 0, 0.2); box-shadow: 0 0 5px rgba(255,0,0,0.5); color: #ffcccc; }
+            50% { background-color: rgba(255, 0, 0, 0.8); box-shadow: 0 0 15px rgba(255,0,0,0.9); color: #ffffff; text-shadow: 0 0 5px white; }
+            100% { background-color: rgba(255, 0, 0, 0.2); box-shadow: 0 0 5px rgba(255,0,0,0.5); color: #ffcccc; }
+        }
+        .precip-alert {
+            animation: rainFlash 1s infinite;
+            border-radius: 4px; padding: 2px 6px; font-weight: bold;
+        }
+
+        /* Legend */
+        .legend { position: absolute; bottom: 30px; left: 12px; background: rgba(10,10,30,0.9); border: 1px solid rgba(0,180,255,0.3); border-radius: 8px; padding: 10px; width: 150px; z-index: 10; }
+        .legend h3 { font-size: 11px; color: #00d4ff; margin-bottom: 4px; }
+        .legend-bar { height: 12px; border-radius: 3px; background: linear-gradient(to right, #0000ff, #0080ff, #00c864, #ffff00, #ff8000, #ff0000); margin: 3px 0; }
+        .legend-labels { display: flex; justify-content: space-between; font-size: 9px; color: #999; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <div class="panel">
+        <h2>Santa Marta — Paso Provisional</h2>
+        <div class="clock-display" id="clock">--:--:--</div>
+        <div class="date-display" id="date-display">--</div>
+        <div class="stat">Edificios: <span id="building-count">--</span></div>
+        <div class="stat">Red vial: <span id="network-count">--</span> segmentos</div>
+        <div class="stat">Río Mendiguaca: <span id="river-count">--</span> puntos</div>
+        <div class="stat">Vehículos: <span id="vehicle-count">30</span> en tránsito</div>
+    </div>
+
+    <div class="crossing-panel">
+        <h2>🚧 Paso Provisional — Batería de Tubos</h2>
+
+        <div class="structure-info">
+            <div><div class="val">11</div><div class="label">Tubos corrugados</div></div>
+            <div><div class="val">45"</div><div class="label">Diámetro (1.14 m)</div></div>
+            <div><div class="val">21 m</div><div class="label">Zona de tubos</div></div>
+            <div><div class="val">30 m</div><div class="label">Dique de sacos</div></div>
+            <div><div class="val">51 m</div><div class="label">Ancho del río</div></div>
+            <div><div class="val" id="capacity-val">--</div><div class="label">Capacidad (m³/s)</div></div>
+        </div>
+
+        <div class="alert-box safe" id="alert-box">● Iniciando...</div>
+
+        <div class="meteo-panel Bajo" id="meteo-panel">
+            <div class="meteo-header">
+                <span>Riesgo Creciente Súbita</span>
+                <span id="meteo-risk-level">BAJO (0/100)</span>
+            </div>
+            <div class="meteo-grid">
+                <div class="meteo-stat"><span id="meteo-clouds">--%</span>☁ Nubes</div>
+                <div class="meteo-stat"><span id="meteo-hum">--%</span>💧 Humedad</div>
+                <div class="meteo-stat"><span id="meteo-press">--</span>⏱ hPa</div>
+                <div class="meteo-stat"><span id="meteo-wind">--</span>⮡ Viento</div>
+            </div>
+            <div class="meteo-factors" id="meteo-factors">Condiciones estables</div>
+        </div>
+
+        <div class="gauge-container">
+            <div class="gauge-label">
+                <span>Capacidad utilizada</span>
+                <span id="gauge-pct">--%</span>
+            </div>
+            <div class="gauge-bar-bg">
+                <div class="gauge-bar-fill safe" id="gauge-fill" style="width: 10%">--%</div>
+                <div class="gauge-100-mark" style="left: 100%; right: auto;"></div>
+            </div>
+        </div>
+
+        <div class="tubes-section">
+            <div class="tubes-header">
+                <span>Nivel de sedimento actual</span>
+                <span id="tubes-status" style="color:#ffcc00">--</span>
+            </div>
+            <div class="tubes-grid" id="tubes-grid">
+                <!-- Tubos se generan por JS -->
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="capacity-chart"></canvas>
+        </div>
+
+        <div class="sim-controls">
+            <button class="btn btn-live" id="btn-live" onclick="startLiveMode()">● EN VIVO</button>
+            <button class="btn btn-future" id="btn-future" onclick="startFutureMode()">▶▶ Días Futuros</button>
+            <button class="btn btn-flood" id="btn-flood" onclick="startFloodMode()">⚠ Crecida Feb 2026</button>
+        </div>
+
+        <div class="flow-info">
+            Caudal: <span id="info-q">--</span> m³/s &nbsp;|&nbsp;
+            Nivel agua: <span id="info-wl">--</span> m &nbsp;|&nbsp;
+            Desborde: <span id="info-overflow">0</span> m³/s<br>
+            🌧 Precipitación: <span id="info-precip">--</span> mm/h &nbsp;|&nbsp;
+            🌡 Temp: <span id="info-temp">--</span> °C
+        </div>
+        <div class="manning-label">Ecuación de Manning — Q = (1/n) × A × R²/³ × S½ | Precipitación: Open-Meteo API</div>
+    </div>
+
+    <div class="legend">
+        <h3>Profundidad Río (m)</h3>
+        <div class="legend-bar"></div>
+        <div class="legend-labels"><span>0.01</span><span>1.09</span><span>2.17</span></div>
+    </div>
+
+    <script src="app_sm.js"></script>
+</body>
+</html>
