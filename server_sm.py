@@ -17,18 +17,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-PROJECT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
-RIVER_FILE = os.path.join(PROJECT_DIR, "mendihuaca_river.geojson")
+DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "data"))
+RIVER_FILE = os.path.join(DATA_DIR, "mendihuaca_river.geojson")
 
 # Santa Marta building files
 BUILDING_FILES = [
-    os.path.join(PROJECT_DIR, "santamarta_gba.poly.xml"),
-    os.path.join(PROJECT_DIR, "santamarta_osm_buildings.poly.xml"),
-    os.path.join(PROJECT_DIR, "santamarta_all_buildings.poly.xml"),
+    os.path.join(DATA_DIR, "santamarta_gba.poly.xml"),
+    os.path.join(DATA_DIR, "santamarta_osm_buildings.poly.xml"),
+    os.path.join(DATA_DIR, "santamarta_all_buildings.poly.xml"),
 ]
 
 # Try to load SUMO network for Santa Marta
-SANTAMARTA_NET = os.path.join(PROJECT_DIR, "santamarta.net.xml.gz")
+SANTAMARTA_NET = os.path.join(DATA_DIR, "santamarta.net.xml.gz")
 sumo_net = None
 
 
