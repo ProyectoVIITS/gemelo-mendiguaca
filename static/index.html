@@ -159,6 +159,16 @@
         .legend h3 { font-size: 11px; color: #00d4ff; margin-bottom: 4px; }
         .legend-bar { height: 12px; border-radius: 3px; background: linear-gradient(to right, #0000ff, #0080ff, #00c864, #ffff00, #ff8000, #ff0000); margin: 3px 0; }
         .legend-labels { display: flex; justify-content: space-between; font-size: 9px; color: #999; }
+
+        /* Responsive Design / Mobile */
+        @media (max-width: 768px) {
+            .panel { width: 94vw; left: 3vw; top: 10px; right: 3vw; padding: 10px; }
+            .crossing-panel { width: 94vw; left: 3vw; right: 3vw; top: auto; bottom: 10px; max-height: 45vh; padding: 10px; }
+            .clock-display { font-size: 20px; }
+            .legend { display: none; }
+            .structure-info { grid-template-columns: 1fr 1fr 1fr; }
+            .meteo-grid { grid-template-columns: repeat(2, 1fr); gap: 6px; }
+        }
     </style>
 </head>
 <body>

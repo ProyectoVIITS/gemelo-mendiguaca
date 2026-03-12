@@ -395,8 +395,8 @@ function startLiveMode() {
         .then(r => r.json())
         .then(data => {
             if (!data.hours || data.hours.length === 0) {
-                updateAlert('warning', '⚠ Sin datos de precipitación');
-                return;
+                updateAlert('warning', '⚠ Sin datos de precipitación — usando respaldo');
+                throw new Error("Empty hours array from backend API");
             }
 
             // Find the current hour index
