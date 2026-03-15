@@ -101,9 +101,19 @@
         .meteo-factors { font-size: 9px; color: #ffaa55; margin-top: 2px; font-style: italic; display: none; }
         .meteo-panel.Crítico .meteo-factors, .meteo-panel.Alto .meteo-factors, .meteo-panel.Moderado .meteo-factors { display: block; }
 
+        /* Help & Tooltips */
+        .help-btn { cursor: pointer; float: right; font-size: 16px; margin-top: -2px; opacity: 0.8; transition: opacity 0.3s; }
+        .help-btn:hover { opacity: 1; }
+        .help-panel { background: rgba(0, 80, 160, 0.2); border: 1px solid rgba(0, 180, 255, 0.4); border-radius: 6px; padding: 10px; font-size: 11px; color: #d0e8ff; margin-bottom: 12px; display: none; }
+        .tooltip { position: relative; display: inline-block; cursor: help; color: #00d4ff; font-weight: bold; margin-left: 3px; }
+        .tooltip .tooltiptext { visibility: hidden; width: 180px; background-color: rgba(20,20,20, 0.95); color: #fff; text-align: center; border-radius: 6px; padding: 5px; position: absolute; z-index: 20; bottom: 125%; left: 50%; margin-left: -90px; opacity: 0; transition: opacity 0.3s; font-size: 10px; border: 1px solid #444; font-weight: normal; }
+        .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
+
         /* Chart */
-        .chart-container { background: rgba(0,0,0,0.3); border-radius: 6px; padding: 10px; margin-bottom: 12px; }
-        .chart-container canvas { width: 100% !important; height: 180px !important; }
+        .chart-wrapper { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+        .chart-container h3 { font-size: 11px; color: #00d4ff; margin-bottom: 4px; text-align: center; font-weight: normal; }
+        .chart-container { background: rgba(0,0,0,0.3); border-radius: 6px; padding: 10px; margin-bottom: 0; }
+        .chart-container canvas { width: 100% !important; height: 140px !important; }
 
         /* Buttons */
         .sim-controls { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -185,7 +195,14 @@
     </div>
 
     <div class="crossing-panel">
-        <h2>🚧 Paso Provisional — Batería de Tubos</h2>
+        <h2>🚧 Paso Provisional — Batería de Tubos <span class="help-btn" onclick="document.getElementById('help-panel').style.display = document.getElementById('help-panel').style.display === 'none' ? 'block' : 'none'">ℹ️</span></h2>
+        
+        <div id="help-panel" class="help-panel">
+            Este panel simula y monitorea el comportamiento del río y su impacto en la vía. 
+            Permite anticipar desbordamientos usando datos reales de lluvia.
+        </div>
+        
+        <div class="alert-box safe" id="alert-box">● Iniciando...</div>
 
         <div class="structure-info">
             <div><div class="val">11</div><div class="label">Tubos corrugados</div></div>
@@ -193,14 +210,12 @@
             <div><div class="val">21 m</div><div class="label">Zona de tubos</div></div>
             <div><div class="val">30 m</div><div class="label">Dique de sacos</div></div>
             <div><div class="val">51 m</div><div class="label">Ancho del río</div></div>
-            <div><div class="val" id="capacity-val">--</div><div class="label">Capacidad (m³/s)</div></div>
+            <div><div class="val" id="capacity-val">--</div><div class="label">Capacidad máx.<div class="tooltip">[?]<span class="tooltiptext">Agua (m³/s) que los tubos pueden evacuar sin desbordarse.</span></div></div></div>
         </div>
-
-        <div class="alert-box safe" id="alert-box">● Iniciando...</div>
 
         <div class="meteo-panel Bajo" id="meteo-panel">
             <div class="meteo-header">
-                <span>Riesgo Creciente Súbita</span>
+                <span>Riesgo Creciente Súbita <div class="tooltip">[?]<span class="tooltiptext">Probabilidad de avalancha de agua por lluvias previstas.</span></div></span>
                 <span id="meteo-risk-level">BAJO (0/100)</span>
             </div>
             <div class="meteo-grid">
@@ -225,7 +240,7 @@
 
         <div class="tubes-section">
             <div class="tubes-header">
-                <span>Nivel de sedimento actual</span>
+                <span>Nivel de sedimento actual <div class="tooltip">[?]<span class="tooltiptext">Arena o lodo que bloquea el flujo dentro de los tubos.</span></div></span>
                 <span id="tubes-status" style="color:#ffcc00">--</span>
             </div>
             <div class="tubes-grid" id="tubes-grid">
@@ -233,8 +248,15 @@
             </div>
         </div>
 
-        <div class="chart-container">
-            <canvas id="capacity-chart"></canvas>
+        <div class="chart-wrapper">
+            <div class="chart-container">
+                <h3>Histórico Semanal (Promedio Diario)</h3>
+                <canvas id="weekly-chart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h3>Monitoreo Reciente (Horario)</h3>
+                <canvas id="hourly-chart"></canvas>
+            </div>
         </div>
 
         <div class="sim-controls">
@@ -250,7 +272,7 @@
             🌧 Precipitación: <span id="info-precip">--</span> mm/h &nbsp;|&nbsp;
             🌡 Temp: <span id="info-temp">--</span> °C
         </div>
-        <div class="manning-label">Ecuación de Manning — Q = (1/n) × A × R²/³ × S½ | Precipitación: Open-Meteo API</div>
+        <div class="manning-label">Caudal calculado mediante la Ecuación de Manning <div class="tooltip">[?]<span class="tooltiptext">Fórmula en ingeniería para estimar cuánta agua corre por un canal abierto o tubo.</span></div> | Precipitación: Open-Meteo API</div>
     </div>
 
     <div class="legend">

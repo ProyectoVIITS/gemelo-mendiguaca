@@ -75,10 +75,11 @@ setInterval(updateClock, 1000);
 updateClock();
 
 // ============================================================
-// CHART
+// CHARTS
 // ============================================================
-const ctx = document.getElementById('capacity-chart').getContext('2d');
-const chart = new Chart(ctx, {
+// Hourly Chart
+const ctxHourly = document.getElementById('hourly-chart').getContext('2d');
+const hourlyChart = new Chart(ctxHourly, {
     type: 'line',
     data: { labels: [], datasets: [
         { label: '% Capacidad Tubos', data: [], borderColor: '#ff9900', backgroundColor: 'rgba(255,153,0,0.1)', borderWidth: 2.5, tension: 0.3, pointRadius: 0, fill: true },
@@ -89,40 +90,77 @@ const chart = new Chart(ctx, {
         animation: { duration: 200 },
         scales: {
             x: { ticks: { color: '#666', font: { size: 8 }, maxTicksLimit: 12 }, grid: { color: 'rgba(255,255,255,0.05)' } },
-            y: { title: { display: true, text: '% Capacidad', color: '#ff9900', font: { size: 10 } }, ticks: { color: '#666', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.08)' }, min: 0, max: 120, suggestedMax: 120 },
-            y2: { position: 'right', title: { display: true, text: 'Q (m³/s)', color: '#00bbff', font: { size: 10 } }, ticks: { color: '#666', font: { size: 9 } }, grid: { display: false }, min: 0, max: 40 }
+            y: { title: { display: true, text: '% Capacidad', color: '#ff9900', font: { size: 9 } }, ticks: { color: '#666', font: { size: 8 } }, grid: { color: 'rgba(255,255,255,0.08)' }, min: 0, max: 120, suggestedMax: 120 },
+            y2: { position: 'right', title: { display: true, text: 'Q (m³/s)', color: '#00bbff', font: { size: 9 } }, ticks: { color: '#666', font: { size: 8 } }, grid: { display: false }, min: 0, max: 40 }
         },
-        plugins: { legend: { labels: { color: '#ccc', font: { size: 10 }, boxWidth: 12, padding: 8 }, position: 'top' } }
+        plugins: { legend: { labels: { color: '#ccc', font: { size: 9 }, boxWidth: 10, padding: 4 }, position: 'top' } }
     },
     plugins: [{
-        id: 'overflowLine',
+        id: 'overflowLineHourly',
         afterDraw: (c) => {
             const y = c.scales.y.getPixelForValue(100);
             const ctx2 = c.ctx;
-            ctx2.save(); ctx2.strokeStyle = '#ff0000'; ctx2.lineWidth = 2; ctx2.setLineDash([8, 4]);
+            ctx2.save(); ctx2.strokeStyle = '#ff0000'; ctx2.lineWidth = 1.5; ctx2.setLineDash([8, 4]);
             ctx2.beginPath(); ctx2.moveTo(c.chartArea.left, y); ctx2.lineTo(c.chartArea.right, y);
-            ctx2.stroke(); ctx2.fillStyle = '#ff4444'; ctx2.font = 'bold 9px Segoe UI';
+            ctx2.stroke(); ctx2.fillStyle = '#ff4444'; ctx2.font = 'bold 8px Segoe UI';
             ctx2.fillText('⚠ DESBORDE 100%', c.chartArea.left + 4, y - 5);
             ctx2.restore();
         }
     }]
 });
 
+// Weekly Chart
+const ctxWeekly = document.getElementById('weekly-chart').getContext('2d');
+const weeklyChart = new Chart(ctxWeekly, {
+    type: 'bar',
+    data: { 
+        labels: ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'], 
+        datasets: [{ label: 'Caudal Medio (m³/s)', data: [0,0,0,0,0,0,0], backgroundColor: '#00bbff', borderRadius: 4 }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        animation: { duration: 200 },
+        scales: {
+            x: { ticks: { color: '#666', font: { size: 8 } }, grid: { display: false } },
+            y: { title: { display: false }, ticks: { color: '#666', font: { size: 8 } }, grid: { color: 'rgba(255,255,255,0.08)' }, min: 0, suggestedMax: 20 }
+        },
+        plugins: { legend: { display: false } }
+    }
+});
+
+let weeklyDataSums = [0,0,0,0,0,0,0];
+let weeklyDataCounts = [0,0,0,0,0,0,0];
+
 function clearChart() {
-    chart.data.labels = [];
-    chart.data.datasets.forEach(ds => ds.data = []);
-    chart.update('none');
+    hourlyChart.data.labels = [];
+    hourlyChart.data.datasets.forEach(ds => ds.data = []);
+    hourlyChart.update('none');
+    
+    weeklyDataSums = [0,0,0,0,0,0,0];
+    weeklyDataCounts = [0,0,0,0,0,0,0];
+    weeklyChart.data.datasets[0].data = [0,0,0,0,0,0,0];
+    weeklyChart.update('none');
 }
 
-function addPoint(label, pct, discharge) {
-    chart.data.labels.push(label);
-    chart.data.datasets[0].data.push(pct);
-    chart.data.datasets[1].data.push(discharge);
-    if (chart.data.labels.length > 200) {
-        chart.data.labels.shift();
-        chart.data.datasets.forEach(ds => ds.data.shift());
+function updateWeeklyChart(dateObj, Q) {
+    if (!dateObj) return;
+    let day = dateObj.getDay(); // 0 is Sunday
+    let idx = day === 0 ? 6 : day - 1; // 0=Monday, 6=Sunday
+    weeklyDataSums[idx] += Q;
+    weeklyDataCounts[idx] += 1;
+    weeklyChart.data.datasets[0].data[idx] = Math.round((weeklyDataSums[idx] / weeklyDataCounts[idx]) * 100) / 100;
+    weeklyChart.update();
+}
+
+function addPointHourly(label, pct, Q) {
+    hourlyChart.data.labels.push(label);
+    hourlyChart.data.datasets[0].data.push(pct);
+    hourlyChart.data.datasets[1].data.push(Q);
+    if (hourlyChart.data.labels.length > 144) { // Keep last 144 points
+        hourlyChart.data.labels.shift();
+        hourlyChart.data.datasets.forEach(ds => ds.data.shift());
     }
-    chart.update();
+    hourlyChart.update();
 }
 
 // ============================================================
@@ -168,7 +206,7 @@ function updateFlowInfo(Q, waterLevel, overflow) {
     document.getElementById('info-overflow').textContent = overflow;
 }
 
-function processReading(Q, label, forcedPrecip = null) {
+function processReading(Q, label, forcedPrecip = null, dateObj = null) {
     const effCap = getEffectiveCapacity();
     const pct = Math.round((Q / effCap) * 1000) / 10;
     const [alertCode, alertLabel] = getAlert(pct);
@@ -187,7 +225,8 @@ function processReading(Q, label, forcedPrecip = null) {
         }
     }
 
-    addPoint(label, pct, Q);
+    addPointHourly(label, pct, Q);
+    if (dateObj) updateWeeklyChart(dateObj, Q);
     updateGauge(pct, alertCode);
     updateAlert(alertCode, alertLabel);
     
@@ -413,7 +452,8 @@ function startLiveMode() {
                 const date = h.time.slice(5, 10); // MM-DD
                 const label = i < currentIdx - 24 ? `${date} ${t}` : t;
                 const Q = h.discharge_estimated;
-                processReading(Q, label);
+                const dateObj = new Date(h.time);
+                processReading(Q, label, null, dateObj);
             }
 
             // Update flow info with precipitation details
@@ -435,7 +475,8 @@ function startLiveMode() {
                 if (futIdx < data.hours.length) {
                     // Forecast data
                     const h = data.hours[futIdx];
-                    processReading(h.discharge_estimated, h.time.slice(11, 16) + ' ⟶');
+                    const dateObj = new Date(h.time);
+                    processReading(h.discharge_estimated, h.time.slice(11, 16) + ' ⟶', null, dateObj);
                     futIdx++;
                 } else {
                     // After running through forecast, poll for updated real-time
@@ -444,7 +485,7 @@ function startLiveMode() {
                         .then(rt => {
                             const t = new Date();
                             const lbl = `${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;
-                            processReading(rt.discharge, lbl);
+                            processReading(rt.discharge, lbl, null, t);
                             if (document.getElementById('info-precip'))
                                 checkPrecipJump(rt.precipitation_mm || 0);
                             if (rt.temperature_c !== undefined && document.getElementById('info-temp'))
@@ -463,9 +504,9 @@ function startLiveMode() {
             const now = new Date();
             for (let m = 120; m >= 1; m--) {
                 const past = new Date(now.getTime() - m * 60000);
-                processReading(riverDischarge(past), `${String(past.getHours()).padStart(2,'0')}:${String(past.getMinutes()).padStart(2,'0')}`);
+                processReading(riverDischarge(past), `${String(past.getHours()).padStart(2,'0')}:${String(past.getMinutes()).padStart(2,'0')}`, null, past);
             }
-            processReading(riverDischarge(now), `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`);
+            processReading(riverDischarge(now), `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`, null, now);
         });
 }
 
@@ -483,7 +524,7 @@ function startFutureMode() {
         updateMeteoUI(synth);
         
         // Pass the generated precip_mm to processReading so it updates the UI accurately
-        processReading(Q, `Día ${day + 1} (${d.getDate()}/${d.getMonth() + 1})`, synth.precipitation_mm);
+        processReading(Q, `Día ${day + 1} (${d.getDate()}/${d.getMonth() + 1})`, synth.precipitation_mm, d);
         
         day++;
     }, 1000);
@@ -519,7 +560,8 @@ function startFloodMode() {
         updateMeteoUI(synth);
         
         // Update reading with forced synthetic precip
-        processReading(Q, `${hour}:00`, synth.precipitation_mm);
+        const d = new Date(); d.setHours(hour, 0, 0);
+        processReading(Q, `${hour}:00`, synth.precipitation_mm, d);
 
         if (pct >= 100 && !overflowAnnounced) {
             overflowAnnounced = true;
